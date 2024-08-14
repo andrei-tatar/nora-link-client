@@ -1,0 +1,33 @@
+{
+  "name": "@nora-link/client",
+  "version": "1.0.6",
+  "description": "noralink.eu client",
+  "bin": {
+    "noralink": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "pub": "npm run build && npm publish --access=public --registry https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrei-tatar/nora-link-client.git"
+  },
+  "author": "Andrei Tatar",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/andrei-tatar/nora-link-client/issues"
+  },
+  "homepage": "https://github.com/andrei-tatar/nora-link-client#readme",
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "rxjs": "^7.8.1",
+    "ws": "^8.16.0"
+  }
+}

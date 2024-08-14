@@ -1,0 +1,26 @@
+{
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch client",
+            "runtimeArgs": [
+                "--trace-warnings",
+                "-r",
+                "ts-node/register"
+            ],
+            "args": [
+                "${workspaceFolder}/src/cli.ts",
+                "-f",
+                "dashboard|NR Dashboard|smarthome.local:1880/ui",
+                "-f",
+                "admin|NR Admin|smarthome.local:1880",
+                "-n",
+                "-h",
+                "noralink.localhost:3000",
+                "-k",
+                "your-own-key"
+            ]
+        }
+    ],
+}
