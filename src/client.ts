@@ -1,5 +1,5 @@
 import {
-    EMPTY, Observable, ReplaySubject, concatMap, filter, finalize,
+    EMPTY, Observable, ReplaySubject, catchError, concatMap, filter, finalize,
     first, ignoreElements, map, merge, mergeMap, retry, share, switchMap, takeWhile, timer
 } from 'rxjs';
 import WebSocket from 'ws';
@@ -11,7 +11,7 @@ import { Logger } from './logger';
 
 export interface TunnelOptions {
     remotePath: string;
-    localUrl: string;
+    url: string;
     label: string;
     removeHostHeader?: boolean;
 }
@@ -79,8 +79,6 @@ export class Client {
                     type,
                     msg: v.subarray(5 + typeLength),
                 };
-            } else {
-                console.log(v);
             }
             return null;
         }),
@@ -88,29 +86,33 @@ export class Client {
         share(),
     );
 
-    readonly handle$ = this.data$.pipe(
-        mergeMap(({ id, msg, type }) => {
-            if (type === 'http' || type === 'ws') {
-                return this.httpRequest({
-                    type,
-                    options: JSON.parse(msg.toString()),
-                    data$: this.getStreamData(id),
-                    send: (type, msg) => this.send(id, type, msg),
-                });
-            }
-            return EMPTY;
-        }),
-        retry({
-            resetOnSuccess: true,
-            delay: (err, retryCount) => {
-                const delaySeconds = Math.round(Math.min(300, Math.pow(1.8, retryCount + 3)));
-                this.options.logger?.trace(`[nora-link] connection error`, err);
-                this.options.logger?.error(`[nora-link] retrying in ${delaySeconds} sec`);
-                return timer(delaySeconds * 1000);
-            },
-        }),
-        share(),
-    );
+    readonly handle$ =
+        merge(
+            this.server$,
+            this.data$.pipe(
+                mergeMap(({ id, msg, type }) =>
+                    type === 'http' || type === 'ws'
+                        ? this.httpRequest({
+                            type,
+                            options: JSON.parse(msg.toString()),
+                            data$: this.getStreamData(id),
+                            send: (type, msg) => this.send(id, type, msg),
+                        })
+                        : EMPTY
+                ),
+            ),
+        ).pipe(
+            retry({
+                resetOnSuccess: true,
+                delay: (err, retryCount) => {
+                    const delaySeconds = Math.round(Math.min(300, Math.pow(1.8, retryCount + 3)));
+                    this.options.logger?.trace(`[nora-link] connection error`, err);
+                    this.options.logger?.error(`[nora-link] retrying in ${delaySeconds} sec`);
+                    return timer(delaySeconds * 1000);
+                },
+            }),
+            share(),
+        );
 
     send(id: number, type: string, msg?: Buffer) {
         return this.server$.pipe(
@@ -150,15 +152,14 @@ export class Client {
 
             const tunnel = this.options.tunnels.find(v => v.remotePath === subdomain);
             if (!tunnel) {
-                //TODO: return an error
-                throw new Error("Subdomain not registered");
+                throw new Error(`subdomain ${subdomain} not registered`);
             }
 
             if (tunnel.removeHostHeader ?? true) {
                 delete headers["host"];
             }
 
-            const { hostname, port, pathname } = new URL(tunnel.localUrl);
+            const { hostname, port, pathname } = new URL(tunnel.url);
             const req = request({
                 host: hostname,
                 port: port,
@@ -295,7 +296,13 @@ export class Client {
                 return merge(handleResponse$, rx$)
                     .subscribe(reqObserver);
             }
+
+            return () => req.end();
         }).pipe(
+            catchError(err => {
+                this.options.logger?.warn(`[nora-link] error handling request`, err);
+                return send(MessageTypes.BADGATEWAY);
+            }),
             finalize(() => {
                 this.options.logger?.trace(`[nora-link] DONE ${method} ${url}`);
             }),

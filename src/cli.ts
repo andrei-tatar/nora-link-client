@@ -34,22 +34,22 @@ if (Array.isArray(options.forward)) {
         .filter((v): v is string => typeof v === 'string')
         .map(v => {
             const [segment, labelOrUrl, urlPart] = v.split('|');
-            let toUrl: string;
+            let tunnelUrl: string;
 
             const label = urlPart ? labelOrUrl : segment;
             const url = urlPart ?? labelOrUrl;
 
             if (/^https?:\/\//.test(url)) {
-                toUrl = url;
+                tunnelUrl = url;
             } else if (url.startsWith(':')) {
-                //only port specified
-                const port = +url.split(':')[1];
-                toUrl = `http://127.0.0.1:${port}`;
+                //only port and/or path specified
+                const portAndPath = url.split(':')[1];
+                tunnelUrl = `http://localhost:${portAndPath}`;
             } else {
-                toUrl = `http://${url}`;
+                tunnelUrl = `http://${url}`;
             }
 
-            return { remotePath: segment, localUrl: toUrl, label };
+            return { remotePath: segment, url: tunnelUrl, label };
         });
 }
 

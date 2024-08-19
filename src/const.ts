@@ -3,4 +3,5 @@ export const MessageTypes = {
     DATA: 'data',
     END: 'end',
     CLOSE: 'close',
+    BADGATEWAY: 'err-502',
 } as const;
