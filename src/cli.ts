@@ -22,8 +22,9 @@ program
     .requiredOption('-f, --forward <subdomain|label|url...>', 'Tunnel subdomain to local url. Label is optional')
     .requiredOption('-k, --key <api-key>', 'Api Key')
     .requiredOption('-h, --host <hostname>', 'Server host name', 'noralink.eu')
-    .addHelpText('afterAll', 'To tunnel a local port to the subdomain `test`, you can use `-f test|:3000`')
-    .addHelpText('afterAll', 'To tunnel an ip to the subdomain `test`, you can use `-f test|192.168.1.130`')
+    .addHelpText('afterAll', 'To tunnel a local port to the subdomain `test`, you can use `-f "test|localhost:3000"`')
+    .addHelpText('afterAll', 'To tunnel an ip to the subdomain `test`, you can use `-f "test|192.168.1.130"`')
+    .addHelpText('afterAll', 'To tunnel a local hostname to the subdomain `test` with label `My App`, you can use `-f "test|My App|local-host.local"`')
     .parse();
 
 const options = program.opts();
@@ -34,22 +35,17 @@ if (Array.isArray(options.forward)) {
         .filter((v): v is string => typeof v === 'string')
         .map(v => {
             const [segment, labelOrUrl, urlPart] = v.split('|');
-            let tunnelUrl: string;
 
             const label = urlPart ? labelOrUrl : segment;
-            const url = urlPart ?? labelOrUrl;
+            let url = urlPart ?? labelOrUrl;
 
-            if (/^https?:\/\//.test(url)) {
-                tunnelUrl = url;
-            } else if (url.startsWith(':')) {
-                //only port and/or path specified
-                const portAndPath = url.split(':')[1];
-                tunnelUrl = `http://localhost:${portAndPath}`;
-            } else {
-                tunnelUrl = `http://${url}`;
+            const urlHasProtocol = /^https?:\/\//.test(url);
+            if (!urlHasProtocol) {
+                //if missing protocol, assume http
+                url = `http://${url}`;
             }
 
-            return { remotePath: segment, url: tunnelUrl, label };
+            return { remotePath: segment, url, label };
         });
 }
 
