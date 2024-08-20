@@ -1,5 +1,5 @@
 import {
-    EMPTY, Observable, ReplaySubject, catchError, concatMap, filter, finalize,
+    EMPTY, Observable, ReplaySubject, catchError, concatMap, delay, filter, finalize,
     first, ignoreElements, map, merge, mergeMap, retry, share, switchMap, takeWhile, timer
 } from 'rxjs';
 import WebSocket from 'ws';
@@ -88,7 +88,7 @@ export class Client {
 
     readonly handle$ =
         merge(
-            this.server$,
+            this.server$.pipe(delay(1000)),
             this.data$.pipe(
                 mergeMap(({ id, msg, type }) =>
                     type === 'http' || type === 'ws'
@@ -105,9 +105,9 @@ export class Client {
             retry({
                 resetOnSuccess: true,
                 delay: (err, retryCount) => {
-                    const delaySeconds = Math.round(Math.min(300, Math.pow(1.8, retryCount + 3)));
-                    this.options.logger?.trace(`[nora-link] connection error`, err);
-                    this.options.logger?.error(`[nora-link] retrying in ${delaySeconds} sec`);
+                    const delaySeconds = Math.round(Math.min(600, Math.pow(1.8, retryCount - 1)));
+                    this.options.logger?.error(`[nora-link] connection error`, err);
+                    this.options.logger?.info(`[nora-link] retrying in ${delaySeconds} sec`);
                     return timer(delaySeconds * 1000);
                 },
             }),
