@@ -33,3 +33,9 @@ You can acess the tunnel by navigating to [https://noralink.eu/home](https://nor
 Currently only a subset of subdomains are available to use with your own tunnels, from the following: *admin, api, app, control, dashboard, home, my, nodered, smarthome, test*.
 
 If you want a new subdomain, add a request here: [Request a new subdomain thread](https://github.com/andrei-tatar/nora-link-client/issues/1).
+
+## Pricing
+
+This service is currently free to use, but as our cloud costs grow, we plan to charge for use to cover the costs. This
+means that while basic features will remain free, full access and advanced features will require a subscription. We
+appreciate your understanding and support as we continue to improve our service.
