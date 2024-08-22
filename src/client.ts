@@ -1,6 +1,7 @@
 import {
     EMPTY, Observable, ReplaySubject, catchError, concatMap, delay, filter, finalize,
-    first, ignoreElements, map, merge, mergeMap, retry, share, switchMap, takeWhile, timer
+    first, ignoreElements, map, merge, mergeMap, retry, share, startWith, switchMap,
+    takeWhile, timer
 } from 'rxjs';
 import WebSocket from 'ws';
 import { request, OutgoingHttpHeaders, IncomingMessage } from 'node:http';
@@ -18,7 +19,7 @@ export interface TunnelOptions {
 
 export interface ClientConnectionOptions {
     agent?: string;
-    hostname: string;
+    hostname?: string;
     secure?: boolean;
     apiKey: string;
     tunnels: TunnelOptions[];
@@ -29,6 +30,7 @@ export class Client {
     constructor(
         private options: ClientConnectionOptions) {
     }
+
     private server$ = new Observable<WebSocket>(observer => {
         const segments = this.options.tunnels.map(v => `${v.remotePath}|${v.label}`);
         const qs = querystringStringify({ s: segments });
@@ -42,7 +44,8 @@ export class Client {
             } : {}),
         };
 
-        const ws = new WebSocket(`${protocol}://${this.options.hostname}/api/tunnel?${qs}`, { headers });
+        const hostname = this.options.hostname ?? 'noralink.eu';
+        const ws = new WebSocket(`${protocol}://${hostname}/api/tunnel?${qs}`, { headers });
 
         ws.on('open', () => {
             this.options.logger?.info(`[nora-link] connected`);
@@ -86,7 +89,7 @@ export class Client {
         share(),
     );
 
-    readonly handle$ =
+    readonly handle$: Observable<'connected' | 'connecting'> =
         merge(
             this.server$.pipe(delay(1000)),
             this.data$.pipe(
@@ -102,6 +105,8 @@ export class Client {
                 ),
             ),
         ).pipe(
+            startWith('connecting' as const),
+            map(_ => 'connected' as const),
             retry({
                 resetOnSuccess: true,
                 delay: (err, retryCount) => {
@@ -114,7 +119,7 @@ export class Client {
             share(),
         );
 
-    send(id: number, type: string, msg?: Buffer) {
+    private send(id: number, type: string, msg?: Buffer) {
         return this.server$.pipe(
             first(),
             switchMap(ws => {
@@ -125,7 +130,7 @@ export class Client {
                 const all = msg
                     ? Buffer.concat([header, typeBuffer, msg])
                     : Buffer.concat([header, typeBuffer]);
-                return new Observable<void>(observer => {
+                return new Observable<never>(observer => {
                     ws.send(all, (err) => {
                         if (err) observer.error(err);
                         else observer.complete();
@@ -143,7 +148,7 @@ export class Client {
         type: 'ws' | 'http',
         options: { url: string, subdomain: string, method: string, headers: OutgoingHttpHeaders },
         data$: ReturnType<Client['getStreamData']>,
-        send: (type: string, msg?: Buffer) => Observable<void>,
+        send: (type: string, msg?: Buffer) => Observable<never>,
     }) {
         const { url, subdomain, method, headers } = options;
 
