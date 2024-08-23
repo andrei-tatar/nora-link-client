@@ -35,7 +35,7 @@ export class Client {
         const subdomains = this.options.tunnels.map(v => `${v.subdomain}|${v.label}`);
         const qs = querystringStringify({ s: subdomains });
         this.options.logger?.info(`[nora-link] connecting`);
-        const protocol = this.options.secure ? 'wss' : 'ws';
+        const protocol = (this.options.secure ?? true) ? 'wss' : 'ws';
 
         const headers = {
             authorization: `Bearer ${this.options.apiKey}`,
