@@ -34,9 +34,9 @@ if (Array.isArray(options.forward)) {
     tunnels = options.forward
         .filter((v): v is string => typeof v === 'string')
         .map(v => {
-            const [segment, labelOrUrl, urlPart] = v.split('|');
+            const [subdomain, labelOrUrl, urlPart] = v.split('|');
 
-            const label = urlPart ? labelOrUrl : segment;
+            const label = urlPart ? labelOrUrl : subdomain;
             let url = urlPart ?? labelOrUrl;
 
             const urlHasProtocol = /^https?:\/\//.test(url);
@@ -45,7 +45,7 @@ if (Array.isArray(options.forward)) {
                 url = `http://${url}`;
             }
 
-            return { remotePath: segment, url, label };
+            return { subdomain, url, label };
         });
 }
 

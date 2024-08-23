@@ -9,7 +9,7 @@ export const LOG_LEVEL = [
 export type LogLevel = typeof LOG_LEVEL[number];
 
 export type Logger = {
-    [P in LogLevel]: (msg: string, err?: any) => void;
+    [P in LogLevel]: (msg: string) => void;
 }
 
 export function createConsoleLogger(minLevel: LogLevel): Logger {
@@ -21,9 +21,7 @@ export function createConsoleLogger(minLevel: LogLevel): Logger {
         }
 
         const now = new Date().toLocaleString();
-        const logArgs = [`[${now}][${kind}]${args[0]}`];
-        if (args[1]) logArgs.push(args[1]);
-        console.log(...logArgs);
+        console.log(`[${now}][${kind}]${args[0]}`);
     }
 
     return new Proxy({}, {

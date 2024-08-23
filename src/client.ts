@@ -11,7 +11,7 @@ import { MessageTypes } from './const';
 import { Logger } from './logger';
 
 export interface TunnelOptions {
-    remotePath: string;
+    subdomain: string;
     url: string;
     label: string;
     removeHostHeader?: boolean;
@@ -32,8 +32,8 @@ export class Client {
     }
 
     private server$ = new Observable<WebSocket>(observer => {
-        const segments = this.options.tunnels.map(v => `${v.remotePath}|${v.label}`);
-        const qs = querystringStringify({ s: segments });
+        const subdomains = this.options.tunnels.map(v => `${v.subdomain}|${v.label}`);
+        const qs = querystringStringify({ s: subdomains });
         this.options.logger?.info(`[nora-link] connecting`);
         const protocol = this.options.secure ? 'wss' : 'ws';
 
@@ -111,7 +111,7 @@ export class Client {
                 resetOnSuccess: true,
                 delay: (err, retryCount) => {
                     const delaySeconds = Math.round(Math.min(600, Math.pow(1.8, retryCount - 1)));
-                    this.options.logger?.error(`[nora-link] connection error`, err);
+                    this.options.logger?.error(`[nora-link] connection error: ${err}`);
                     this.options.logger?.info(`[nora-link] retrying in ${delaySeconds} sec`);
                     return timer(delaySeconds * 1000);
                 },
@@ -155,7 +155,7 @@ export class Client {
         return new Observable<never>(reqObserver => {
             this.options.logger?.trace(`[nora-link] START ${method} ${url}`);
 
-            const tunnel = this.options.tunnels.find(v => v.remotePath === subdomain);
+            const tunnel = this.options.tunnels.find(v => v.subdomain === subdomain);
             if (!tunnel) {
                 throw new Error(`subdomain ${subdomain} not registered`);
             }
@@ -305,7 +305,7 @@ export class Client {
             return () => req.end();
         }).pipe(
             catchError(err => {
-                this.options.logger?.warn(`[nora-link] error handling request`, err);
+                this.options.logger?.warn(`[nora-link] error handling request: ${err}`);
                 return send(MessageTypes.BADGATEWAY);
             }),
             finalize(() => {
