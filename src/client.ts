@@ -45,13 +45,18 @@ export class Client {
         };
 
         const hostname = this.options.hostname ?? 'noralink.eu';
-        const ws = new WebSocket(`${protocol}://${hostname}/api/tunnel?${qs}`, { headers });
+        const ws = new WebSocket(`${protocol}://${hostname}/api/tunnel?${qs}`, {
+            headers,
+            followRedirects: true,
+        });
 
         ws.on('open', () => {
             this.options.logger?.info(`[nora-link] connected`);
             observer.next(ws);
         });
-        ws.on('error', err => observer.error(err));
+        ws.on('error', (err) => {
+            observer.error(err);
+        });
         ws.on('close', () => observer.complete());
 
         return () => ws.close();
