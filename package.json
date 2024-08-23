@@ -7,8 +7,9 @@
   },
   "main": "dist/index.js",
   "scripts": {
+    "clean": "rm -rf dist",
     "build": "tsc",
-    "pub": "npm run build && npm publish --access=public --registry https://registry.npmjs.org/"
+    "pub": "npm run clean && npm run build && npm publish --access=public --registry https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
