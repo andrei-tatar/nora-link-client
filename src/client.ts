@@ -1,7 +1,7 @@
 import {
-    EMPTY, Observable, ReplaySubject, catchError, concatMap, delay, filter, finalize,
-    first, ignoreElements, map, merge, mergeMap, retry, share, startWith, switchMap,
-    takeWhile, timer
+    EMPTY, Observable, ReplaySubject, catchError, concat, concatMap, delay, filter, finalize,
+    first, ignoreElements, map, merge, mergeMap, of, retry, share, startWith, switchMap,
+    takeWhile, throwError, timer
 } from 'rxjs';
 import WebSocket from 'ws';
 import { request, OutgoingHttpHeaders, IncomingMessage } from 'node:http';
@@ -69,13 +69,20 @@ export class Client {
             const handler = (msg: Buffer) => {
                 Buffer.isBuffer(msg) && observer.next(msg);
             };
+            const errorHandler = (err: any) => observer.error(err);
+            const closeHandler = (code: number, reason: Buffer) => {
+                observer.error(new Error(`${code} - ${reason.toString()}`));
+            };
 
             ws.on('message', handler);
-            ws.once('error', err => observer.error(err));
-            ws.once('close', (code, reason) => {
-                observer.error(new Error(`${code} - ${reason.toString()}`));
-            });
-            return () => ws.off('message', handler);
+            ws.once('error', errorHandler);
+            ws.once('close', closeHandler);
+            return () => {
+                ws.off('message', handler);
+                ws.off('error', errorHandler);
+                ws.off('close', closeHandler);
+                ws.close();
+            };
         })),
         map(v => {
             if (v.length >= 5) {
@@ -94,7 +101,7 @@ export class Client {
         share(),
     );
 
-    readonly handle$: Observable<'connected' | 'connecting'> =
+    readonly handle$: Observable<'connected' | 'connecting' | 'disconnected'> =
         merge(
             this.server$.pipe(delay(1000)),
             this.data$.pipe(
@@ -112,6 +119,10 @@ export class Client {
         ).pipe(
             startWith('connecting' as const),
             map(_ => 'connected' as const),
+            catchError(err => concat(
+                of('disconnected' as const),
+                throwError(() => err),
+            )),
             retry({
                 resetOnSuccess: true,
                 delay: (err, retryCount) => {
