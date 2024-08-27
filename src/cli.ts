@@ -54,12 +54,15 @@ if (!tunnels.length) {
     process.exit(1);
 }
 else {
+    const logger = createConsoleLogger(options.log);
     new Client({
         agent: `${name}@${version}`,
         hostname: options.host,
         secure: !options.nonSecure,
         tunnels,
         apiKey: options.key,
-        logger: createConsoleLogger(options.log),
-    }).handle$.subscribe();
+        logger,
+    }).handle$.subscribe(status => {
+        logger.info(`[nora-link] ${status}`)
+    });
 }

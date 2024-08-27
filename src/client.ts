@@ -1,7 +1,7 @@
 import {
-    EMPTY, Observable, ReplaySubject, catchError, concat, concatMap, delay, filter, finalize,
+    EMPTY, Observable, ReplaySubject, catchError, concat, concatMap, filter, finalize,
     first, ignoreElements, map, merge, mergeMap, of, retry, share, startWith, switchMap,
-    takeWhile, throwError, timer
+    takeWhile, tap, throwError, timer
 } from 'rxjs';
 import WebSocket from 'ws';
 import { request, OutgoingHttpHeaders, IncomingMessage } from 'node:http';
@@ -27,6 +27,9 @@ export interface ClientConnectionOptions {
 }
 
 export class Client {
+
+    private retryCount = 1;
+
     constructor(
         private options: ClientConnectionOptions) {
     }
@@ -34,7 +37,6 @@ export class Client {
     private server$ = new Observable<WebSocket>(observer => {
         const subdomains = this.options.tunnels.map(v => `${v.subdomain}|${v.label}`);
         const qs = querystringStringify({ s: subdomains });
-        this.options.logger?.info(`[nora-link] connecting`);
         const protocol = (this.options.secure ?? true) ? 'wss' : 'ws';
 
         const headers = {
@@ -51,7 +53,6 @@ export class Client {
         });
 
         ws.on('open', () => {
-            this.options.logger?.info(`[nora-link] connected`);
             observer.next(ws);
         });
         ws.on('error', (err) => {
@@ -103,7 +104,12 @@ export class Client {
 
     readonly handle$: Observable<'connected' | 'connecting' | 'disconnected'> =
         merge(
-            this.server$.pipe(delay(1000)),
+            this.server$.pipe(
+                tap(() => {
+                    this.retryCount = 1;
+                }),
+                map(_ => 'connected' as const),
+            ),
             this.data$.pipe(
                 mergeMap(({ id, msg, type }) =>
                     type === 'http' || type === 'ws'
@@ -118,17 +124,16 @@ export class Client {
             ),
         ).pipe(
             startWith('connecting' as const),
-            map(_ => 'connected' as const),
             catchError(err => concat(
                 of('disconnected' as const),
                 throwError(() => err),
             )),
             retry({
-                resetOnSuccess: true,
-                delay: (err, retryCount) => {
-                    const delaySeconds = Math.round(Math.min(600, Math.pow(1.8, retryCount - 1)));
-                    this.options.logger?.error(`[nora-link] connection error: ${err}`);
+                delay: (err) => {
+                    const delaySeconds = Math.round(Math.min(600, Math.pow(1.8, this.retryCount - 1)));
+                    this.options.logger?.error(`[nora-link] connection error ${this.retryCount}: ${err}`);
                     this.options.logger?.info(`[nora-link] retrying in ${delaySeconds} sec`);
+                    this.retryCount++;
                     return timer(delaySeconds * 1000);
                 },
             }),
