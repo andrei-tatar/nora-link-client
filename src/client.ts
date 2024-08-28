@@ -1,5 +1,5 @@
 import {
-    EMPTY, Observable, ReplaySubject, catchError, concat, concatMap, filter, finalize,
+    EMPTY, Observable, ReplaySubject, catchError, concat, concatMap, delay, filter, finalize,
     first, ignoreElements, map, merge, mergeMap, of, retry, share, startWith, switchMap,
     takeWhile, tap, throwError, timer
 } from 'rxjs';
@@ -105,6 +105,8 @@ export class Client {
     readonly handle$: Observable<'connected' | 'connecting' | 'disconnected'> =
         merge(
             this.server$.pipe(
+                //wait a bit before deeming `connected`. Server might close the connection for various reasons.
+                delay(500),
                 tap(() => {
                     this.retryCount = 1;
                 }),
