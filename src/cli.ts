@@ -56,7 +56,6 @@ if (!tunnels.length) {
 else {
     const logger = createConsoleLogger(options.log);
     new Client({
-        agent: `${name}@${version}`,
         hostname: options.host,
         secure: !options.nonSecure,
         tunnels,

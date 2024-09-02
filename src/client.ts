@@ -1,4 +1,5 @@
 import {
+    BehaviorSubject,
     EMPTY, Observable, ReplaySubject, catchError, concat, concatMap, delay, filter, finalize,
     first, ignoreElements, map, merge, mergeMap, of, retry, share, startWith, switchMap,
     takeWhile, tap, throwError, timer
@@ -9,6 +10,8 @@ import { Socket } from 'node:net';
 import { stringify as querystringStringify } from 'node:querystring';
 import { MessageTypes } from './const';
 import { Logger } from './logger';
+import { goIdleAndWaitForSignal } from './firebase';
+import { randomBytes } from 'node:crypto';
 
 export interface TunnelOptions {
     subdomain: string;
@@ -29,14 +32,22 @@ export interface ClientConnectionOptions {
 export class Client {
 
     private retryCount = 1;
+    private clientId;
 
     constructor(
         private options: ClientConnectionOptions) {
+
+        if (!options.agent) {
+            const { name, version } = require('../package.json');
+            options.agent = `${name}@${version}`;
+        }
+
+        this.clientId = randomBytes(16).toString('base64url');
     }
 
     private server$ = new Observable<WebSocket>(observer => {
         const subdomains = this.options.tunnels.map(v => `${v.subdomain}|${v.label}`);
-        const qs = querystringStringify({ s: subdomains });
+        const qs = querystringStringify({ s: subdomains, c: this.clientId });
         const protocol = (this.options.secure ?? true) ? 'wss' : 'ws';
 
         const headers = {
@@ -86,73 +97,108 @@ export class Client {
             };
         })),
         map(v => {
-            if (v.length >= 5) {
-                const id = v.readUint32BE();
-                const typeLength = v.readUint8(4);
-                const type = v.subarray(5, 5 + typeLength).toString();
-                return {
-                    id,
-                    type,
-                    msg: v.subarray(5 + typeLength),
-                };
+            if (v.length < 18) {
+                return null;
             }
-            return null;
+
+            let offset = 0;
+
+            const version = v.readUInt8(offset++);
+            if (version !== 1) {
+                return null;
+            }
+
+            const id = v.subarray(offset, offset + 16);
+            offset += 16;
+            const typeLength = v.readUint8(offset++);
+            const type = v.subarray(offset, offset + typeLength).toString();
+            offset += typeLength;
+            const msg = v.subarray(offset);
+
+            return {
+                id,
+                type,
+                msg,
+            };
         }),
         filter(v => !!v),
         share(),
     );
 
-    readonly handle$: Observable<'connected' | 'connecting' | 'disconnected'> =
-        merge(
-            this.server$.pipe(
-                //wait a bit before deeming `connected`. Server might close the connection for various reasons.
-                delay(500),
-                tap(() => {
-                    this.retryCount = 1;
-                }),
-                map(_ => 'connected' as const),
-            ),
-            this.data$.pipe(
-                mergeMap(({ id, msg, type }) =>
-                    type === 'http' || type === 'ws'
-                        ? this.httpRequest({
+    private readonly connectToServer$ = merge(
+        this.server$.pipe(
+            //wait a bit before deeming `connected`. Server might close the connection for various reasons.
+            delay(500),
+            tap(() => {
+                this.retryCount = 1;
+            }),
+            map(_ => 'connected' as const),
+        ),
+        this.data$.pipe(
+            mergeMap(({ id, msg, type }) => {
+
+                switch (type) {
+                    case 'http':
+                    case 'ws':
+                        return this.httpRequest({
                             type,
                             options: JSON.parse(msg.toString()),
                             data$: this.getStreamData(id),
                             send: (type, msg) => this.send(id, type, msg),
-                        })
-                        : EMPTY
-                ),
-            ),
-        ).pipe(
-            startWith('connecting' as const),
-            catchError(err => concat(
-                of('disconnected' as const),
-                throwError(() => err),
-            )),
-            retry({
-                delay: (err) => {
-                    const delaySeconds = Math.round(Math.min(600, Math.pow(1.8, this.retryCount - 1)));
-                    this.options.logger?.error(`[nora-link] connection error ${this.retryCount}: ${err}`);
-                    this.options.logger?.info(`[nora-link] retrying in ${delaySeconds} sec`);
-                    this.retryCount++;
-                    return timer(delaySeconds * 1000);
-                },
-            }),
-            share(),
-        );
+                        });
 
-    private send(id: number, type: string, msg?: Buffer) {
+                    case 'go-idle':
+                        const { db, dbKey, apiKey, token } = JSON.parse(msg.toString());
+                        this.idle$.next({ db, dbKey, apiKey, token });
+                        break;
+                }
+                return EMPTY;
+            }),
+        ),
+    ).pipe(
+        startWith('connecting' as const),
+        catchError(err => concat(
+            of('disconnected' as const),
+            throwError(() => err),
+        )),
+        retry({
+            delay: (err) => {
+                const delaySeconds = Math.round(Math.min(600, Math.pow(1.8, this.retryCount - 1)));
+                this.options.logger?.error(`[nora-link] connection error ${this.retryCount}: ${err}`);
+                this.options.logger?.info(`[nora-link] retrying in ${delaySeconds} sec`);
+                this.retryCount++;
+                return timer(delaySeconds * 1000);
+            },
+        }),
+        share(),
+    );
+
+    readonly idle$ = new BehaviorSubject<null | { db: string, dbKey: string, apiKey: string, token: string }>(null);
+
+    readonly handle$: Observable<'connected' | 'connecting' | 'disconnected' | 'idle'> = this.idle$.pipe(
+        switchMap(idle => idle
+            ? goIdleAndWaitForSignal({
+                ...idle,
+                subdomains: this.options.tunnels.map(t => t.subdomain),
+                goOutOfIdle: () => this.idle$.next(null),
+                logger: this.options.logger,
+            })
+            : this.connectToServer$
+        ),
+    );
+
+    private send(id: Buffer, type: string, msg?: Buffer) {
         return this.server$.pipe(
             first(),
             switchMap(ws => {
-                const header = Buffer.alloc(5);
                 const typeBuffer = Buffer.from(type);
-                header.writeUint32BE(id);
-                header.writeUint8(typeBuffer.length, 4);
-                const all = msg
-                    ? Buffer.concat([header, typeBuffer, msg])
-                    : Buffer.concat([header, typeBuffer]);
+                let offset = 0;
+                const all = Buffer.alloc(18 + typeBuffer.length + (msg?.length ?? 0));
+                offset = all.writeUint8(1, offset);
+                offset += id.copy(all, offset, 0, 16);
+                offset = all.writeUint8(typeBuffer.length, offset);
+                offset += typeBuffer.copy(all, offset);
+                msg?.copy(all, offset);
                 return new Observable<never>(observer => {
                     ws.send(all, (err) => {
                         if (err) observer.error(err);
@@ -163,8 +209,11 @@ export class Client {
         );
     }
 
-    private getStreamData(id: number) {
-        return this.data$.pipe(filter((m) => m.id === id), map(({ id, ...rest }) => rest));
+    private getStreamData(id: Buffer) {
+        return this.data$.pipe(
+            filter((m) => m.id.equals(id)),
+            map(({ id, ...rest }) => rest)
+        );
     }
 
     private httpRequest({ type, options, data$, send }: {
