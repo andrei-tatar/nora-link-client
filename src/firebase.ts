@@ -19,7 +19,7 @@ export function goIdleAndWaitForSignal(opts: {
     return defer(async () => {
         const app = initializeApp({
             apiKey: opts.apiKey,
-        });
+        }, `app-${new Date().getTime()}`);
         const auth = getAuth(app);
         await signInWithCustomToken(auth, opts.token);
 
