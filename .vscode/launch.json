@@ -12,7 +12,7 @@
             "args": [
                 "${workspaceFolder}/src/cli.ts",
                 "-f",
-                "dashboard|LOCAL Dashboard|smarthome.local:1880/ui",
+                "test|LOCAL Dashboard|smarthome.local:1880/ui",
                 "-n",
                 "-h",
                 "noralink.localhost:3000",

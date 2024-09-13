@@ -27,6 +27,7 @@ export interface ClientConnectionOptions {
     apiKey: string;
     tunnels: TunnelOptions[];
     logger?: Logger;
+    clientId?: string;
 }
 
 export class Client {
@@ -42,7 +43,7 @@ export class Client {
             options.agent = `${name}@${version}`;
         }
 
-        this.clientId = randomBytes(16).toString('base64url');
+        this.clientId = options.clientId ?? randomBytes(16).toString('base64url');
     }
 
     private server$ = new Observable<WebSocket>(observer => {
