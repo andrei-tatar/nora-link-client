@@ -10,6 +10,7 @@ program
     .name(name)
     .version(version, '-v, --version')
     .usage('[OPTIONS]...')
+    .showHelpAfterError()
     .option('-d, --debug', 'output extra debugging', false)
     .option('-n, --non-secure', 'don\'t use secure connection', false)
     .option('-h, --host <hostname>', 'Server host name')

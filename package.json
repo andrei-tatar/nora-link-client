@@ -22,14 +22,15 @@
   },
   "homepage": "https://github.com/andrei-tatar/nora-link-client#readme",
   "devDependencies": {
-    "@types/ws": "^8.5.10",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.5.4"
+    "@types/node": "^25.6.2",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
   },
   "dependencies": {
-    "commander": "^12.0.0",
-    "firebase": "^10.13.1",
-    "rxjs": "^7.8.1",
-    "ws": "^8.16.0"
+    "commander": "^14.0.3",
+    "firebase": "^12.13.0",
+    "rxjs": "^7.8.2",
+    "ws": "^8.20.0"
   }
 }

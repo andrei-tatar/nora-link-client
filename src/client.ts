@@ -270,7 +270,7 @@ export class Client {
                             observer.next(send(MessageTypes.DATA, Buffer.from(head)));
 
                             socket.on('data', data => {
-                                observer.next(send(MessageTypes.DATA, data));
+                                observer.next(send(MessageTypes.DATA, Buffer.from(data)));
                             });
 
                             socket.once('end', () => {

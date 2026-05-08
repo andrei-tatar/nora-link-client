@@ -4,20 +4,10 @@
             "type": "node",
             "request": "launch",
             "name": "client",
-            "runtimeArgs": [
-                "--trace-warnings",
-                "-r",
-                "ts-node/register"
-            ],
+            "runtimeExecutable": "tsx",
             "args": [
                 "${workspaceFolder}/src/cli.ts",
-                "-f",
-                "test|LOCAL Dashboard|smarthome.local:1880/ui",
-                "-n",
-                "-h",
-                "noralink.localhost:3000",
-                "-k",
-                "test-key1"
+                
             ]
         }
     ],
