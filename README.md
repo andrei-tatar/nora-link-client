@@ -30,7 +30,27 @@ You can acess the tunnel by navigating to [https://noralink.eu/home](https://nor
 
 ## Available subdomains
 
-Currently only a subset of subdomains are available to use with your own tunnels, from the following: *admin, api, app, control, dashboard, home, my, nodered, smarthome, test*.
+Currently only a subset of subdomains are available to use with your own tunnels, from the following:
+- `ev`
+- `evse`
+- `mower`
+- `zigbee-garage`
+- `cnc`
+- `nodered-living`
+- `zigbee-home`
+- `zigbee`
+- `nas`
+- `music`
+- `test`
+- `smarthome`
+- `nodered`
+- `my`
+- `home`
+- `control`
+- `api`
+- `admin`
+- `app`
+- `dashboard`
 
 If you want a new subdomain, add a request here: [Request a new subdomain thread](https://github.com/andrei-tatar/nora-link-client/issues/1).
 
