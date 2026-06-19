@@ -35,7 +35,7 @@ export function goIdleAndWaitForSignal(opts: {
       {
         apiKey: opts.apiKey,
       },
-      `app-${new Date().getTime()}`
+      `app-${new Date().getTime()}`,
     );
     const auth = getAuth(app);
 
@@ -62,9 +62,9 @@ export function goIdleAndWaitForSignal(opts: {
             },
             (err) => {
               observer.error(err);
-            }
-          )
-        )
+            },
+          ),
+        ),
     ),
     distinctUntilChanged((a, b) => {
       for (let i = 0; i < a.length; i++) {
@@ -85,6 +85,6 @@ export function goIdleAndWaitForSignal(opts: {
       }
       opts.goOutOfIdle();
       return EMPTY;
-    })
+    }),
   );
 }
