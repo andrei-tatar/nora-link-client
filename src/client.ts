@@ -25,7 +25,12 @@ import {
   timer,
 } from "rxjs";
 import WebSocket from "ws";
-import { request, OutgoingHttpHeaders, IncomingMessage } from "node:http";
+import {
+  request as httpRequest,
+  OutgoingHttpHeaders,
+  IncomingMessage,
+} from "node:http";
+import { request as httpsRequest } from "node:https";
 import { Socket } from "node:net";
 import { stringify as querystringStringify } from "node:querystring";
 import { MessageTypes } from "./const";
@@ -38,6 +43,7 @@ export interface TunnelOptions {
   url: string;
   label: string;
   removeHostHeader?: boolean;
+  rejectUnauthorized?: boolean;
 }
 
 export interface ClientConnectionOptions {
@@ -282,17 +288,20 @@ export class Client {
         throw new Error(`subdomain ${subdomain} not registered`);
       }
 
+      const { protocol, hostname, port, pathname } = new URL(tunnel.url);
+
       if (tunnel.removeHostHeader ?? true) {
         delete headers["host"];
       }
 
-      const { hostname, port, pathname } = new URL(tunnel.url);
-      const req = request({
+      const isHttps = protocol === "https:";
+      const req = (isHttps ? httpsRequest : httpRequest)({
         host: hostname,
         port: port,
         path: pathname === "/" ? url : `${pathname}${url}`,
         method,
         headers,
+        ...(isHttps ? { rejectUnauthorized: tunnel.rejectUnauthorized } : {}),
       });
 
       req.on("error", (err) => reqObserver.error(err));

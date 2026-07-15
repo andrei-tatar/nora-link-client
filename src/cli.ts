@@ -6,6 +6,8 @@ import { createConsoleLogger, LOG_LEVEL, LogLevel } from "./logger";
 
 const { name, version } = require("../package.json");
 
+const TRUST_HTTPS_CERT_PREFIX = "trust!";
+
 program
   .name(name)
   .version(version, "-v, --version")
@@ -43,6 +45,10 @@ program
     "afterAll",
     'To tunnel a local hostname to the subdomain `test` with label `My App`, you can use `-f "test|My App|local-host.local"`',
   )
+  .addHelpText(
+    "afterAll",
+    'To tunnel an https url with a self-signed/invalid certificate, prefix the url with `trust!`, e.g. `-f "test|trust!https://localhost:3000"`',
+  )
   .parse();
 
 const options = program.opts();
@@ -57,13 +63,19 @@ if (Array.isArray(options.forward)) {
       const label = urlPart ? labelOrUrl : subdomain;
       let url = urlPart ?? labelOrUrl;
 
+      let rejectUnauthorized: boolean | undefined;
+      if (url.startsWith(`${TRUST_HTTPS_CERT_PREFIX}https://`)) {
+        rejectUnauthorized = false;
+        url = url.replace(TRUST_HTTPS_CERT_PREFIX, "");
+      }
+
       const urlHasProtocol = /^https?:\/\//.test(url);
       if (!urlHasProtocol) {
         //if missing protocol, assume http
         url = `http://${url}`;
       }
 
-      return { subdomain, url, label };
+      return { subdomain, url, label, rejectUnauthorized };
     });
 }
 
