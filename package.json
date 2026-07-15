@@ -1,6 +1,6 @@
 {
   "name": "@nora-link/client",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "noralink.eu client",
   "bin": {
     "noralink": "dist/cli.js"
